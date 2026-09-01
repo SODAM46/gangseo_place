@@ -3,31 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>강서구 맛집</title>
+<title>강서구 리스트</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="diary">
   <div class="wrap">
-    <header class="masthead">
-     <h1>강서구 맛집모음</h1>
-      <p>★ 사이트 공유 금지🥺 리스트 추가 요청시 방장/부방에게</p>
-    </header>
-
-    <div class="controls">
-      <input class="search-input" id="searchInput" type="text" placeholder="이름이나 주소로 검색">
+    <div class="diary-title">
+      <h1><span class="script">강서구</span><br><span class="block">리스트</span></h1>
     </div>
 
-    <div class="chip-row" id="chipRow"></div>
-
-    <div id="grid" class="grid"></div>
-    <div id="emptyMsg" class="empty" style="display:none;">등록된 맛집이 없습니다.</div>
+    <div class="diary-grid" id="grid"></div>
+    <div id="emptyMsg" class="empty" style="display:none;">데이터를 불러오지 못했습니다. app-config.js 설정을 확인해주세요.</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app-config.js"></script>
   <script>
-    let allItems = [];
-    let activeCategory = "전체";
+    const CATEGORIES = ["카페", "밥&술집"];
 
     async function loadItems() {
       const { data, error } = await db
@@ -38,61 +30,54 @@
       if (error) {
         document.getElementById("grid").innerHTML = "";
         document.getElementById("emptyMsg").style.display = "block";
-        document.getElementById("emptyMsg").textContent = "데이터를 불러오지 못했습니다. app-config.js 설정을 확인해주세요.";
         console.error(error);
         return;
       }
-      allItems = data || [];
-      renderChips();
-      render();
+      render(data || []);
     }
 
-    function renderChips() {
-      const cats = ["전체", ...new Set(allItems.map(i => i.category).filter(Boolean))];
-      const row = document.getElementById("chipRow");
-      row.innerHTML = "";
-      cats.forEach(cat => {
-        const chip = document.createElement("button");
-        chip.className = "chip" + (cat === activeCategory ? " active" : "");
-        chip.textContent = cat;
-        chip.onclick = () => { activeCategory = cat; renderChips(); render(); };
-        row.appendChild(chip);
-      });
+    function naverMapUrl(address) {
+      return "https://map.naver.com/p/search/" + encodeURIComponent(address);
     }
 
-    function render() {
-      const q = document.getElementById("searchInput").value.trim().toLowerCase();
-      const filtered = allItems.filter(i => {
-        const matchesCat = activeCategory === "전체" || i.category === activeCategory;
-        const matchesQ = !q || (i.name || "").toLowerCase().includes(q) || (i.address || "").toLowerCase().includes(q);
-        return matchesCat && matchesQ;
-      });
-
-      const grid = document.getElementById("grid");
-      const empty = document.getElementById("emptyMsg");
-
-      if (filtered.length === 0) {
-        grid.innerHTML = "";
-        empty.style.display = "block";
-        empty.textContent = "조건에 맞는 맛집이 없습니다.";
-        return;
-      }
-      empty.style.display = "none";
-
-      grid.innerHTML = filtered.map(item => `
-        <div class="card">
-          ${item.category ? `<span class="tag">${escapeHtml(item.category)}</span>` : ""}
-          <h3>${escapeHtml(item.name || "")}</h3>
-          ${item.address ? `<div class="addr">${escapeHtml(item.address)}</div>` : ""}
-          ${renderScore(item.rating)}
-          ${item.note ? `<div class="note">${escapeHtml(item.note)}</div>` : ""}
+    function renderEntry(item) {
+      return `
+        <div class="diary-entry">
+          <div class="diary-line">
+            <span class="circle"></span>
+            <span class="label">이름</span>
+            <span class="val">${escapeHtml(item.name || "")}</span>
+          </div>
+          <div class="diary-line">
+            <span class="circle"></span>
+            <span class="label">주소</span>
+            ${item.address
+              ? `<a class="val link" href="${naverMapUrl(item.address)}" target="_blank" rel="noopener">${escapeHtml(item.address)}</a>`
+              : `<span class="val"></span>`}
+          </div>
+          <div class="diary-line">
+            <span class="circle"></span>
+            <span class="label">내용</span>
+            <span class="val">${escapeHtml(item.note || "")}</span>
+          </div>
         </div>
-      `).join("");
+      `;
     }
 
-    function renderScore(rating) {
-      if (rating === null || rating === undefined || rating === "") return "";
-      return `<div class="score">평점 <span class="n">${escapeHtml(String(rating))}/5</span></div>`;
+    function render(items) {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = CATEGORIES.map(cat => {
+        const list = items.filter(i => i.category === cat);
+        const body = list.length
+          ? list.map(renderEntry).join("")
+          : `<div class="diary-empty">아직 등록된 곳이 없어요.</div>`;
+        return `
+          <div>
+            <div class="diary-head">${escapeHtml(cat)} /</div>
+            <div class="diary-box">${body}</div>
+          </div>
+        `;
+      }).join("");
     }
 
     function escapeHtml(str) {
@@ -101,7 +86,6 @@
       return div.innerHTML;
     }
 
-    document.getElementById("searchInput").addEventListener("input", render);
     loadItems();
   </script>
 </body>
