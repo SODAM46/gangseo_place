@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>맛집 노트 - 관리</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="masthead">
+      <h1>맛집 노트 관리</h1>
+      <p>로그인 후 맛집을 추가·수정·삭제할 수 있습니다.</p>
+    </header>
+
+    <div id="loginPanel" class="panel" style="max-width:360px;">
+      <h2>로그인</h2>
+      <div class="field">
+        <label for="email">이메일</label>
+        <input id="email" type="email" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="password">비밀번호</label>
+        <input id="password" type="password" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" id="loginBtn">로그인</button>
+      <div class="msg error" id="loginMsg"></div>
+    </div>
+
+    <div id="adminArea" style="display:none;">
+      <div class="topbar">
+        <span class="who" id="whoAmI"></span>
+        <button class="btn btn-ghost" id="logoutBtn">로그아웃</button>
+      </div>
+
+      <div class="admin-shell">
+        <div class="panel">
+          <h2 id="formTitle">맛집 추가</h2>
+          <input type="hidden" id="editId">
+          <div class="field">
+            <label for="name">이름</label>
+            <input id="name" type="text">
+          </div>
+          <div class="field">
+            <label for="category">카테고리</label>
+            <input id="category" type="text" placeholder="예: 한식, 카페, 술집">
+          </div>
+          <div class="field">
+            <label for="address">주소</label>
+            <input id="address" type="text">
+          </div>
+          <div class="field">
+            <label for="rating">평점 (0~5)</label>
+            <input id="rating" type="number" min="0" max="5" step="1">
+          </div>
+          <div class="field">
+            <label for="note">한줄 메모</label>
+            <textarea id="note"></textarea>
+          </div>
+          <button class="btn btn-primary" id="saveBtn">저장</button>
+          <button class="btn btn-ghost" id="cancelEditBtn" style="display:none;">취소</button>
+          <div class="msg" id="formMsg"></div>
+        </div>
+
+        <div class="panel">
+          <h2>등록된 맛집 (<span id="countLabel">0</span>)</h2>
+          <div id="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app-config.js"></script>
+  <script>
+    let items = [];
+
+    async function checkSession() {
+      const { data } = await db.auth.getSession();
+      if (data.session) {
+        showAdmin(data.session.user.email);
+      } else {
+        showLogin();
+      }
+    }
+
+    function showLogin() {
+      document.getElementById("loginPanel").style.display = "block";
+      document.getElementById("adminArea").style.display = "none";
+    }
+
+    function showAdmin(email) {
+      document.getElementById("loginPanel").style.display = "none";
+      document.getElementById("adminArea").style.display = "block";
+      document.getElementById("whoAmI").textContent = email + " 로 로그인됨";
+      loadItems();
+    }
+
+    document.getElementById("loginBtn").onclick = async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const msg = document.getElementById("loginMsg");
+      msg.textContent = "";
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
+      if (error) {
+        msg.textContent = "로그인 실패: " + error.message;
+        return;
+      }
+      showAdmin(data.user.email);
+    };
+
+    document.getElementById("logoutBtn").onclick = async () => {
+      await db.auth.signOut();
+      showLogin();
+    };
+
+    async function loadItems() {
+      const { data, error } = await db
+        .from("restaurants")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) {
+        document.getElementById("list").innerHTML = "";
+        console.error(error);
+        return;
+      }
+      items = data || [];
+      document.getElementById("countLabel").textContent = items.length;
+      renderList();
+    }
+
+    function renderList() {
+      const list = document.getElementById("list");
+      if (items.length === 0) {
+        list.innerHTML = '<p class="msg">아직 등록된 맛집이 없습니다.</p>';
+        return;
+      }
+      list.innerHTML = items.map(item => `
+        <div class="admin-row">
+          <div>
+            <strong>${escapeHtml(item.name || "")}</strong>
+            <div class="meta">${escapeHtml(item.category || "")} · ${escapeHtml(item.address || "")} · 평점 ${item.rating ?? "-"}</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost" data-edit="${item.id}">수정</button>
+            <button class="btn btn-danger" data-delete="${item.id}">삭제</button>
+          </div>
+        </div>
+      `).join("");
+
+      list.querySelectorAll("[data-edit]").forEach(btn => {
+        btn.onclick = () => startEdit(btn.dataset.edit);
+      });
+      list.querySelectorAll("[data-delete]").forEach(btn => {
+        btn.onclick = () => deleteItem(btn.dataset.delete);
+      });
+    }
+
+    function startEdit(id) {
+      const item = items.find(i => String(i.id) === String(id));
+      if (!item) return;
+      document.getElementById("editId").value = item.id;
+      document.getElementById("name").value = item.name || "";
+      document.getElementById("category").value = item.category || "";
+      document.getElementById("address").value = item.address || "";
+      document.getElementById("rating").value = item.rating ?? "";
+      document.getElementById("note").value = item.note || "";
+      document.getElementById("formTitle").textContent = "맛집 수정";
+      document.getElementById("cancelEditBtn").style.display = "inline-block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    document.getElementById("cancelEditBtn").onclick = resetForm;
+
+    function resetForm() {
+      document.getElementById("editId").value = "";
+      document.getElementById("name").value = "";
+      document.getElementById("category").value = "";
+      document.getElementById("address").value = "";
+      document.getElementById("rating").value = "";
+      document.getElementById("note").value = "";
+      document.getElementById("formTitle").textContent = "맛집 추가";
+      document.getElementById("cancelEditBtn").style.display = "none";
+    }
+
+    document.getElementById("saveBtn").onclick = async () => {
+      const id = document.getElementById("editId").value;
+      const formMsg = document.getElementById("formMsg");
+      const payload = {
+        name: document.getElementById("name").value.trim(),
+        category: document.getElementById("category").value.trim(),
+        address: document.getElementById("address").value.trim(),
+        rating: document.getElementById("rating").value ? Number(document.getElementById("rating").value) : null,
+        note: document.getElementById("note").value.trim(),
+      };
+      if (!payload.name) {
+        formMsg.className = "msg error";
+        formMsg.textContent = "이름은 필수입니다.";
+        return;
+      }
+
+      let error;
+      if (id) {
+        ({ error } = await db.from("restaurants").update(payload).eq("id", id));
+      } else {
+        ({ error } = await db.from("restaurants").insert(payload));
+      }
+
+      if (error) {
+        formMsg.className = "msg error";
+        formMsg.textContent = "저장 실패: " + error.message;
+        return;
+      }
+      formMsg.className = "msg ok";
+      formMsg.textContent = "저장되었습니다.";
+      resetForm();
+      loadItems();
+    };
+
+    async function deleteItem(id) {
+      if (!confirm("정말 삭제하시겠어요?")) return;
+      const { error } = await db.from("restaurants").delete().eq("id", id);
+      if (error) {
+        alert("삭제 실패: " + error.message);
+        return;
+      }
+      loadItems();
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    checkSession();
+  </script>
+</body>
+</html>

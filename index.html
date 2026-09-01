@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>맛집 노트</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="masthead">
+      <h1>맛집 노트</h1>
+      <p>내가 다녀온 곳들을 기록하고 정리하는 리스트</p>
+    </header>
+
+    <div class="controls">
+      <input class="search-input" id="searchInput" type="text" placeholder="이름이나 주소로 검색">
+    </div>
+
+    <div class="chip-row" id="chipRow"></div>
+
+    <div id="grid" class="grid"></div>
+    <div id="emptyMsg" class="empty" style="display:none;">등록된 맛집이 없습니다.</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app-config.js"></script>
+  <script>
+    let allItems = [];
+    let activeCategory = "전체";
+
+    async function loadItems() {
+      const { data, error } = await db
+        .from("restaurants")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        document.getElementById("grid").innerHTML = "";
+        document.getElementById("emptyMsg").style.display = "block";
+        document.getElementById("emptyMsg").textContent = "데이터를 불러오지 못했습니다. app-config.js 설정을 확인해주세요.";
+        console.error(error);
+        return;
+      }
+      allItems = data || [];
+      renderChips();
+      render();
+    }
+
+    function renderChips() {
+      const cats = ["전체", ...new Set(allItems.map(i => i.category).filter(Boolean))];
+      const row = document.getElementById("chipRow");
+      row.innerHTML = "";
+      cats.forEach(cat => {
+        const chip = document.createElement("button");
+        chip.className = "chip" + (cat === activeCategory ? " active" : "");
+        chip.textContent = cat;
+        chip.onclick = () => { activeCategory = cat; renderChips(); render(); };
+        row.appendChild(chip);
+      });
+    }
+
+    function render() {
+      const q = document.getElementById("searchInput").value.trim().toLowerCase();
+      const filtered = allItems.filter(i => {
+        const matchesCat = activeCategory === "전체" || i.category === activeCategory;
+        const matchesQ = !q || (i.name || "").toLowerCase().includes(q) || (i.address || "").toLowerCase().includes(q);
+        return matchesCat && matchesQ;
+      });
+
+      const grid = document.getElementById("grid");
+      const empty = document.getElementById("emptyMsg");
+
+      if (filtered.length === 0) {
+        grid.innerHTML = "";
+        empty.style.display = "block";
+        empty.textContent = "조건에 맞는 맛집이 없습니다.";
+        return;
+      }
+      empty.style.display = "none";
+
+      grid.innerHTML = filtered.map(item => `
+        <div class="card">
+          ${item.category ? `<span class="tag">${escapeHtml(item.category)}</span>` : ""}
+          <h3>${escapeHtml(item.name || "")}</h3>
+          ${item.address ? `<div class="addr">${escapeHtml(item.address)}</div>` : ""}
+          ${renderDots(item.rating)}
+          ${item.note ? `<div class="note">${escapeHtml(item.note)}</div>` : ""}
+        </div>
+      `).join("");
+    }
+
+    function renderDots(rating) {
+      const r = Math.max(0, Math.min(5, Number(rating) || 0));
+      let dots = "";
+      for (let i = 1; i <= 5; i++) {
+        dots += `<span class="dot${i <= r ? " filled" : ""}"></span>`;
+      }
+      return `<div class="dots">${dots}</div>`;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    document.getElementById("searchInput").addEventListener("input", render);
+    loadItems();
+  </script>
+</body>
+</html>
