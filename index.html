@@ -9,8 +9,10 @@
 <body class="diary">
   <div class="wrap">
     <div class="diary-title">
-      <h1><span class="script">강서구 리스트</span><br><span class="block">★ 공유금지 !! / 추가는 방장 및 부방에게 </span></h1>
+      <h1><span class="script">강서구 리스트</span><br><span class="block">★ 공유금지!! / 추가는 방장 및 부방에게</span></h1>
     </div>
+
+    <input class="diary-search" id="searchInput" type="text" placeholder="이름이나 주소로 검색">
 
     <div class="diary-grid" id="grid"></div>
     <div id="emptyMsg" class="empty" style="display:none;">데이터를 불러오지 못했습니다. app-config.js 설정을 확인해주세요.</div>
@@ -20,6 +22,7 @@
   <script src="app-config.js"></script>
   <script>
     const CATEGORIES = ["카페", "밥&술집"];
+    let allItems = [];
 
     async function loadItems() {
       const { data, error } = await db
@@ -33,7 +36,8 @@
         console.error(error);
         return;
       }
-      render(data || []);
+      allItems = data || [];
+      render();
     }
 
     function naverMapUrl(address) {
@@ -64,13 +68,19 @@
       `;
     }
 
-    function render(items) {
+    function render() {
+      const q = document.getElementById("searchInput").value.trim().toLowerCase();
+      const filtered = allItems.filter(i => {
+        if (!q) return true;
+        return (i.name || "").toLowerCase().includes(q) || (i.address || "").toLowerCase().includes(q);
+      });
+
       const grid = document.getElementById("grid");
       grid.innerHTML = CATEGORIES.map(cat => {
-        const list = items.filter(i => i.category === cat);
+        const list = filtered.filter(i => i.category === cat);
         const body = list.length
           ? list.map(renderEntry).join("")
-          : `<div class="diary-empty">아직 등록된 곳이 없어요.</div>`;
+          : `<div class="diary-empty">${q ? "검색 결과가 없어요." : "아직 등록된 곳이 없어요."}</div>`;
         return `
           <div>
             <div class="diary-head">${escapeHtml(cat)} /</div>
@@ -79,6 +89,8 @@
         `;
       }).join("");
     }
+
+    document.getElementById("searchInput").addEventListener("input", render);
 
     function escapeHtml(str) {
       const div = document.createElement("div");
