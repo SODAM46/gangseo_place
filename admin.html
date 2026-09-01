@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>강서구 맛집 - 관리</title>
+<title>강서구 - 관리</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="wrap">
     <header class="masthead">
-      <h1>강서동 맛집 기록 관리</h1>
+      <h1>강서구 맛집 관리</h1>
       <p>로그인 후 맛집을 추가·수정·삭제할 수 있습니다.</p>
     </header>
 
@@ -43,15 +43,14 @@
           </div>
           <div class="field">
             <label for="category">카테고리</label>
-            <input id="category" type="text" placeholder="예: 카페, 밥&술집">
+            <select id="category">
+              <option value="카페">카페</option>
+              <option value="밥&술집">밥&술집</option>
+            </select>
           </div>
           <div class="field">
             <label for="address">주소</label>
             <input id="address" type="text">
-          </div>
-          <div class="field">
-            <label for="rating">평점 (0~5)</label>
-            <input id="rating" type="number" min="0" max="5" step="1">
           </div>
           <div class="field">
             <label for="note">한줄 메모</label>
@@ -139,7 +138,7 @@
         <div class="admin-row">
           <div>
             <strong>${escapeHtml(item.name || "")}</strong>
-            <div class="meta">${escapeHtml(item.category || "")} · ${escapeHtml(item.address || "")} · 평점 ${item.rating ?? "-"}</div>
+            <div class="meta">${escapeHtml(item.category || "")} · ${escapeHtml(item.address || "")}</div>
           </div>
           <div class="actions">
             <button class="btn btn-ghost" data-edit="${item.id}">수정</button>
@@ -163,7 +162,6 @@
       document.getElementById("name").value = item.name || "";
       document.getElementById("category").value = item.category || "";
       document.getElementById("address").value = item.address || "";
-      document.getElementById("rating").value = item.rating ?? "";
       document.getElementById("note").value = item.note || "";
       document.getElementById("formTitle").textContent = "맛집 수정";
       document.getElementById("cancelEditBtn").style.display = "inline-block";
@@ -177,7 +175,6 @@
       document.getElementById("name").value = "";
       document.getElementById("category").value = "";
       document.getElementById("address").value = "";
-      document.getElementById("rating").value = "";
       document.getElementById("note").value = "";
       document.getElementById("formTitle").textContent = "맛집 추가";
       document.getElementById("cancelEditBtn").style.display = "none";
@@ -190,7 +187,6 @@
         name: document.getElementById("name").value.trim(),
         category: document.getElementById("category").value.trim(),
         address: document.getElementById("address").value.trim(),
-        rating: document.getElementById("rating").value ? Number(document.getElementById("rating").value) : null,
         note: document.getElementById("note").value.trim(),
       };
       if (!payload.name) {
