@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>강서구 맛집모음</title>
+<title>강서구 맛집</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="wrap">
     <header class="masthead">
-      <h1>강서구 맛집모음</h1>
+     <h1>강서구 맛집모음</h1>
       <p>★ 사이트 공유 금지🥺 리스트 추가 요청시 방장에게</p>
     </header>
 
@@ -84,19 +84,15 @@
           ${item.category ? `<span class="tag">${escapeHtml(item.category)}</span>` : ""}
           <h3>${escapeHtml(item.name || "")}</h3>
           ${item.address ? `<div class="addr">${escapeHtml(item.address)}</div>` : ""}
-          ${renderDots(item.rating)}
+          ${renderScore(item.rating)}
           ${item.note ? `<div class="note">${escapeHtml(item.note)}</div>` : ""}
         </div>
       `).join("");
     }
 
-    function renderDots(rating) {
-      const r = Math.max(0, Math.min(5, Number(rating) || 0));
-      let dots = "";
-      for (let i = 1; i <= 5; i++) {
-        dots += `<span class="dot${i <= r ? " filled" : ""}"></span>`;
-      }
-      return `<div class="dots">${dots}</div>`;
+    function renderScore(rating) {
+      if (rating === null || rating === undefined || rating === "") return "";
+      return `<div class="score">평점 <span class="n">${escapeHtml(String(rating))}/5</span></div>`;
     }
 
     function escapeHtml(str) {
